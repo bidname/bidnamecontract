@@ -25,14 +25,14 @@ class bidname : public eosio::contract{
     } order_status;
 
     //@abi table globalconfig i64
-    struct globalconfig
+    struct globalset
     {
         uint64_t id = 0;                        // 主键，使用available_primary_key生成
         bool maintained = false;                // 是否处于系统维护状态
 
         uint64_t primary_key()const { return id; }
 
-        EOSLIB_SERIALIZE( globalconfig, (id)(maintained) )
+        EOSLIB_SERIALIZE( globalset, (id)(maintained) )
     };
 
     //@abi table openorder i64
@@ -43,7 +43,7 @@ class bidname : public eosio::contract{
         account_name acc;
         asset adfee;
         asset price;
-        order_status status;
+        uint16_t status;
         time createdat;
 
         uint64_t primary_key() const { return id; }
@@ -74,12 +74,12 @@ class bidname : public eosio::contract{
     };
 
   private: 
-    typedef eosio::multi_index<N(globalconfigs), globalconfig> globalconfig_index;
+    typedef eosio::multi_index<N(globalsets), globalset> global_set_index;
 
     typedef eosio::multi_index<N(openorders), openorder,
                                 indexed_by<N(seller), const_mem_fun<openorder, account_name, &openorder::by_seller>>,
                                 indexed_by<N(acc), const_mem_fun<openorder, account_name, &openorder::by_acc>>,
-                                indexed_by<N(adfee), const_mem_fun<openorder, asset, &offeropenorderbet::by_addfee>>>
+                                indexed_by<N(adfee), const_mem_fun<openorder, asset, &openorder::by_adfee>>>
         open_orders_index;
 
     typedef eosio::multi_index<N(comporders), comporder,
@@ -88,14 +88,14 @@ class bidname : public eosio::contract{
                                 indexed_by<N(price), const_mem_fun<comporder, asset, &comporder::by_price>>>
         comp_orders_index;
 
-    globalconfig_index globalconfigs;
+    global_set_index globalsets;
     open_orders_index openorders;
     comp_orders_index comporders;
 
   public:
     bidname(account_name self)
         : eosio::contract(self),
-          globalconfigs(_self, _self),
+          globalsets(_self, _self),
           openorders(_self, _self),
           comporders(_self, _self)
     {

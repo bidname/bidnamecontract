@@ -1,5 +1,4 @@
 #include "bidname.hpp"
-#include <eosio.token/eosio.token.hpp>
 
 using namespace std;
 using eosio::action;
@@ -29,3 +28,5 @@ void bidname::accrelease(name seller, name acc, name buyer,uint64_t orderid){
 void bidname::setadfee(uint64_t orderid, name seller, name acc){
 
 }
+
+EOSIO_ABI(bidname, (createorder)(cancelorder)(placeorder)(accrelease)(setadfee))
