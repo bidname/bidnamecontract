@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/types.hpp>
 #include <eosiolib/asset.hpp>
 #include <string>
 
@@ -24,37 +25,39 @@ class bidname : public eosio::contract{
         OPEN,            // 正在进行
     } order_status;
 
-    //@abi table globalconfig i64
+    //@abi table globalsets i64
     struct globalset
     {
         uint64_t id = 0;                        // 主键，使用available_primary_key生成
         bool maintained = false;                // 是否处于系统维护状态
+        double royalty;
+        uint64_t reward;
 
         uint64_t primary_key()const { return id; }
 
-        EOSLIB_SERIALIZE( globalset, (id)(maintained) )
+        EOSLIB_SERIALIZE( globalset, (id)(maintained)(royalty)(reward) )
     };
 
-    //@abi table openorder i64
+    //@abi table openorders i64
     struct openorder
     {
         uint64_t id;
         account_name seller;
         account_name acc;
-        asset adfee;
-        asset price;
+        double adfee;
+        uint64_t price;
         uint16_t status;
         time createdat;
 
         uint64_t primary_key() const { return id; }
         account_name by_seller() const { return seller; }
         account_name by_acc() const { return acc; }
-        asset by_adfee() const {return adfee;}
+        double by_adfee() const {return adfee;}
 
         EOSLIB_SERIALIZE( openorder, (id)(seller)(acc)(adfee)(price)(status)(createdat) )
     };
 
-    //@abi table comporder i64
+    //@abi table comporders i64
     struct comporder
     {
         uint64_t id;
@@ -79,7 +82,7 @@ class bidname : public eosio::contract{
     typedef eosio::multi_index<N(openorders), openorder,
                                 indexed_by<N(seller), const_mem_fun<openorder, account_name, &openorder::by_seller>>,
                                 indexed_by<N(acc), const_mem_fun<openorder, account_name, &openorder::by_acc>>,
-                                indexed_by<N(adfee), const_mem_fun<openorder, asset, &openorder::by_adfee>>>
+                                indexed_by<N(adfee), const_mem_fun<openorder, double, &openorder::by_adfee>>>
         open_orders_index;
 
     typedef eosio::multi_index<N(comporders), comporder,
@@ -101,11 +104,14 @@ class bidname : public eosio::contract{
     {
     }
 
-    void createorder(name seller, name acc, uint64_t price, asset adfee  );
-    void cancelorder(uint64_t orderId,name acc,name seller);
-    void placeorder(name account,uint64_t orderId,name buyer);
-    void accrelease(name seller, name acc, name buyer,uint64_t orderid);
-    void setadfee(uint64_t orderid, name seller, name acc); 
+    void createorder(account_name seller, account_name acc, uint64_t price, asset adfee  );
+    void cancelorder(uint64_t orderId,account_name acc,account_name seller);
+    void placeorder(account_name account,uint64_t orderId,account_name buyer);
+    void accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid);
+    void setadfee(uint64_t orderid, account_name seller, account_name acc); 
+    void setmaintain(bool maintain);
+    void setroyalty(double royalty);  
+    void setreward(uint64_t reward);
 
   private:
     void setorderstatus(uint64_t orderid);                                                                                 // 修改订单状态
@@ -114,6 +120,9 @@ class bidname : public eosio::contract{
     uint64_t orderisexist(account_name acc);                                                                                         // 该账户是否已存在open的单                          
     void ordercommission(account_name client, asset fee);                                                              // 缴纳广告费及佣金
     void reward(account_name buyer, account_name seller);                                                                                // 给予购买者代币奖励
-    void canceloldorder(uint64_t orderid);    
+    void canceloldorder(uint64_t orderid);
+    bool ismaintained();   
+    uint64_t getreward();
+    double getroyalty();
 
 };
