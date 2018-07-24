@@ -1,2 +1,2 @@
-# trentLotteryContract
+# bidname
 smart contract on EOS!
