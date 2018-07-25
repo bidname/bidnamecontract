@@ -15,11 +15,9 @@ void bidname::createorder(const account_name seller,account_name acc, uint64_t p
     eosio_assert( adfee.is_valid(), "invalid adfee" );
     eosio_assert( adfee.amount > 1.0000, "must adfee positive quantity" );
     eosio_assert( is_account( acc ), "account don't exists" );
-    print("acc=========>",name{acc});
 
     deleteoldorder(acc);
     
-
     action act(
         permission_level{seller, N(active)},
         N(eosio.token), N(transfer),
@@ -33,27 +31,18 @@ void bidname::createorder(const account_name seller,account_name acc, uint64_t p
         order.price = price;
         order.adfee = adfee.amount;
         order.createdat = now();
+        order.status = OPEN;
     });
 }
 
 void bidname::deleteoldorder(account_name account){
-            print( "account, ", name{account} );
+    auto acc_index = openorders.template get_index<N(acc)>();
 
-        auto acc_index = openorders.template get_index<N(acc)>();
-
-        auto acc_itr = acc_index.find(name{account});
-            print( "accountid, ", acc_itr->id );
-            if(acc_itr != acc_index.end()){
-                acc_index.erase(acc_itr);
-                eosio_assert(acc_itr != acc_index.end(), "Address not erased properly");  
-            }
-                // uint64_t orderid = ;
-            // auto oldorder = openorders.find(N(acc_itr->id));
-            // // eosio_assert(oldorder != openorders.end(), "Address for account not found");
-            // if(oldorder != openorders.end()){
-            //     openorders.erase( oldorder );
-            //     eosio_assert(oldorder != openorders.end(), "Address not erased properly");            
-            // }
+    auto acc_itr = acc_index.find(name{account});
+    if(acc_itr != acc_index.end()){
+        eosio_assert(acc_itr->status == OPEN, "account order is lock" );
+        acc_index.erase(acc_itr);
+    }
 }
 
 bool bidname::ismaintained()
@@ -62,8 +51,16 @@ bool bidname::ismaintained()
 }
 
 //@abi action
-void bidname::cancelorder(uint64_t orderId,account_name acc,account_name seller){
-
+void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller){
+    require_auth(seller);
+    auto acc_itr = openorders.find(orderid);
+   
+    eosio_assert(acc_itr != openorders.end(), "don't find the order");
+    eosio_assert(acc_itr->status == OPEN, "order is locking");
+    eosio_assert(name{acc_itr->seller} == name{seller}, "order info is wrong");
+    eosio_assert(name{acc_itr->acc} == name{acc}, "order info is wrong");
+    openorders.erase(acc_itr);
+    eosio_assert(acc_itr != openorders.end(), "can't cancel order");
 }
 
 //@abi action
@@ -83,6 +80,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc){
 
 //@abi action
 void bidname::setmaintain(bool maintain){
+    require_auth(_self);
     globalsets.emplace(_self, [&](auto &globalset) {
         globalset.id = globalsets.available_primary_key();
         globalset.maintained = maintain;

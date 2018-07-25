@@ -107,7 +107,7 @@ class bidname : public eosio::contract{
     }
 
     void createorder(const account_name seller,account_name acc, uint64_t price, asset adfee  );
-    void cancelorder(uint64_t orderId,account_name acc,account_name seller);
+    void cancelorder(uint64_t orderid,account_name acc,account_name seller);
     void placeorder(account_name acc,uint64_t orderId,account_name buyer,public_key newpkey);
     void accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid);
     void setadfee(uint64_t orderid, account_name seller, account_name acc); 
