@@ -64,8 +64,24 @@ void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller)
 }
 
 //@abi action
-void bidname::placeorder(account_name acc,uint64_t orderId,account_name buyer,public_key newpkey){
+void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,public_key newpkey){
+    require_auth(buyer);
+    auto acc_itr = openorders.find(orderid);
+    eosio_assert(acc_itr != openorders.end(), "don't find the order");
+    eosio_assert(acc_itr->status == OPEN, "order is locking");
+    eosio_assert(name{acc_itr->acc} == name{acc}, "order info is wrong");
 
+    action act(
+        permission_level{buyer, N(active)},
+        N(eosio.token), N(transfer),
+        std::make_tuple(buyer, _self, asset(acc_itr->price), std::string("")));
+    act.send();
+
+    openorders.modify(acc_itr,_self, [&]( auto& order ) {
+        order.buyer = buyer;
+        order.newpkey = newpkey;
+        order.status = LOCKING;
+      });
 }
 
 //@abi action
