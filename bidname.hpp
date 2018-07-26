@@ -79,17 +79,17 @@ class bidname : public eosio::contract{
         uint64_t id;
         account_name seller;
         account_name acc;
-        uint64_t adfee;
+        asset adfee;
         account_name buyer;
         eosio::public_key newpkey;
-        uint64_t price;
+        asset price;
         uint16_t status;
         time createdat;
 
         uint64_t primary_key() const { return id; }
         account_name by_seller() const { return seller; }
         account_name by_acc() const { return acc; }
-        uint64_t by_adfee() const {return adfee;}
+        uint64_t by_adfee() const {return adfee.amount;}
 
         EOSLIB_SERIALIZE( openorder, (id)(seller)(acc)(adfee)(buyer)(newpkey)(price)(status)(createdat) )
     };
@@ -101,14 +101,14 @@ class bidname : public eosio::contract{
         account_name seller;
         account_name acc;
         account_name buyer;
-        uint64_t price;
+        asset price;
         time createdat;
         time finishedat;
 
         uint64_t primary_key() const { return id; }
         account_name by_seller() const { return seller; }
         account_name by_acc() const { return acc; }
-        uint64_t by_price() const {return price;}
+        uint64_t by_price() const {return price.amount;}
 
         EOSLIB_SERIALIZE( comporder, (id)(seller)(acc)(buyer)(price)(createdat)(finishedat) )
     };
@@ -141,24 +141,25 @@ class bidname : public eosio::contract{
     {
     }
 
-    void createorder(const account_name seller,account_name acc, uint64_t price, asset adfee  );
+    void createorder(const account_name seller,account_name acc, asset price, asset adfee  );
     void cancelorder(uint64_t orderid,account_name acc,account_name seller);
     void placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey);
     void accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid,eosio::public_key newpkey);
-    void setadfee(uint64_t orderid, account_name seller, account_name acc); 
+    void setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee); 
     void setmaintain(bool maintain);
     void setroyalty(double royalty);  
     void setreward(int64_t reward);
     void cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller);
 
   private:
-    void setorderstatus(uint64_t orderid);                                                                                 // 修改订单状态
-    bool isorderopen(uint64_t orderid);                                                                                     // 订单是否开启
-    asset getorderprice(uint64_t orderid);                                                                                 // 获取订单金额
-    void deleteoldorder(account_name account);                                                                                         // 该账户是否已存在open的单                          
-    void ordercommission(account_name client, asset fee);                                                              // 缴纳广告费及佣金
-    void reward(account_name buyer, account_name seller);                                                                                // 给予购买者代币奖励
-    void canceloldorder(uint64_t orderid);
+    void setorderstatus(uint64_t orderid);                     // 修改订单状态
+    bool isorderopen(uint64_t orderid);                        // 订单是否开启
+    asset getorderprice(uint64_t orderid);                     // 获取订单金额
+    void isaccountvalid(account_name seller,account_name acc); //判断seller和acc是否冲突
+    void deleteoldorder(account_name account);                 // 删除acc重复的open订单                          
+    void ordercommission(account_name client, asset fee);      // 缴纳广告费及佣金
+    void reward(account_name buyer, account_name seller);      // 给予购买者代币奖励
+    void canceloldorder(uint64_t orderid);                     // 取消以前的订单
     bool ismaintained();   
     int64_t getreward();
     double getroyalty();
