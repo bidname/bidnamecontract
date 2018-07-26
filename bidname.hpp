@@ -65,12 +65,14 @@ class bidname : public eosio::contract{
     {
         uint64_t id = 0;                        // 主键，使用available_primary_key生成
         bool maintained = false;                // 是否处于系统维护状态
-        double royalty;
-        int64_t reward;
+        double royalty;                         // 手续费比例
+        asset reward;                           // 奖励标准
+        account_name contractname;              // 代币合约地址
+        account_name receiver;                  // 接受手续费账户
 
         uint64_t primary_key()const { return id; }
 
-        EOSLIB_SERIALIZE( globalset, (id)(maintained)(royalty)(reward) )
+        EOSLIB_SERIALIZE( globalset, (id)(maintained)(royalty)(reward)(contractname)(receiver) )
     };
 
     //@abi table openorders i64
@@ -146,9 +148,7 @@ class bidname : public eosio::contract{
     void placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey);
     void accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid,eosio::public_key newpkey);
     void setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee); 
-    void setmaintain(bool maintain);
-    void setroyalty(double royalty);  
-    void setreward(int64_t reward);
+    void setglobalcfg(bool maintain, double royalty, asset reward, account_name contractname,account_name receiver);
     void cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller);
 
   private:
@@ -159,9 +159,9 @@ class bidname : public eosio::contract{
     void deleteoldorder(account_name account);                 // 删除acc重复的open订单                          
     void ordercommission(account_name client, asset fee);      // 缴纳广告费及佣金
     void reward(account_name buyer, account_name seller);      // 给予购买者代币奖励
-    void canceloldorder(uint64_t orderid);                     // 取消以前的订单
-    bool ismaintained();   
-    int64_t getreward();
-    double getroyalty();
-
+    bool ismaintained();                                       // 是否在维护                            
+    asset getreward();                                         // 获取代币奖励标准
+    double getroyalty();                                       // 获取手续费比例
+    account_name getcontractname();
+    account_name getreceiver();
 };

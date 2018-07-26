@@ -24,11 +24,7 @@ void bidname::createorder(const account_name seller,account_name acc, asset pric
     isaccountvalid(seller,acc);
     deleteoldorder(acc);
     
-    action act(
-        permission_level{seller, N(active)},
-        N(eosio.token), N(transfer),
-        std::make_tuple(seller, _self, adfee, std::string("")));
-    act.send();
+    ordercommission(seller,adfee);
 
     openorders.emplace(seller, [&](auto &order) {
         order.id = openorders.available_primary_key();
@@ -82,11 +78,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
     eosio_assert(order_itr->status == OPEN, "order is locking");
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
 
-    action act(
-        permission_level{buyer, N(active)},
-        N(eosio.token), N(transfer),
-        std::make_tuple(buyer, _self, asset(order_itr->price), std::string("")));
-    act.send();
+    ordercommission(buyer, order_itr->price);
 
     openorders.modify(order_itr,buyer, [&]( auto& order ) {
         order.buyer = buyer;
@@ -108,12 +100,13 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
     print("i m here i right1");
+    double royalty = getroyalty();
     
 
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
-        std::make_tuple(_self, seller, (order_itr->price.amount)/2, std::string("")));
+        std::make_tuple(_self, seller, order_itr->price*royalty, std::string("")));
     transferact.send();
     // string str = order_itr->newpkey.data[0];
     print("i m here acc=========>",name{order_itr->acc});
@@ -143,6 +136,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     });
 
     openorders.erase(order_itr);
+    // reward(seller,buyer);
     
 }
 
@@ -156,6 +150,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(adfee.amount > 0, "adfee is wrong");
     eosio_assert(adfee.symbol == CORE_SYMBOL, "only core token allowed" );
+    ordercommission(seller,adfee);
     openorders.modify(order_itr,seller,[&]( auto& order){
         order.adfee += adfee;
     });
@@ -171,64 +166,47 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
 
+    double royalty = getroyalty();
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
-        std::make_tuple(_self, buyer, order_itr->price/2, std::string("")));
+        std::make_tuple(_self, buyer, order_itr->price*royalty, std::string("")));
     transferact.send();
 
     openorders.modify(order_itr,buyer,[&]( auto& order){
         order.buyer = account_name();
         order.newpkey = eosio::public_key();
+        order.status = OPEN;
     });
 }
 
 //@abi action
-void bidname::setmaintain(bool maintain){
-    require_auth(_self);
+void bidname::setglobalcfg(bool maintain, double royalty, asset reward, account_name contractname,account_name receiver){
+    eosio_assert(is_account(contractname) , "account is invalid");
+    eosio_assert(is_account(receiver) , "account is invalid");
+
+    eosio_assert(royalty>0 , "royalty have to bigger than zero");
+    eosio_assert(reward.amount>0 , "reward have to bigger than zero");
+   
     auto global_itr = globalsets.begin();
-    if(global_itr==globalsets.end()){
+    if(global_itr == globalsets.end()){
         globalsets.emplace(_self, [&](auto &globalset) {
         globalset.id = globalsets.available_primary_key();
         globalset.maintained = maintain;
+        globalset.royalty = royalty;
+        globalset.reward = reward;
+        globalset.contractname = contractname;
+        globalset.receiver = receiver;
         });
     }else{
         globalsets.modify(global_itr,_self, [&]( auto& globalset ) {
         globalset.maintained = maintain;
-      });
-    }
-}
-
-//@abi action
-void bidname::setroyalty(double royalty){
-    require_auth(_self);
-    auto global_itr = globalsets.begin();
-
-    if(global_itr==globalsets.end()){
-        globalsets.emplace(_self, [&](auto &globalset) {
-        globalset.id = globalsets.available_primary_key();
         globalset.royalty = royalty;
-        });
-    }else{
-        globalsets.modify(global_itr,_self, [&]( auto& globalset ) {
-        globalset.royalty = royalty;
-      });
-    }
-}
+        globalset.reward = reward;
+        globalset.contractname = contractname;
+        globalset.receiver = receiver;
 
-//@abi action
-void bidname::setreward(int64_t reward){
-    require_auth(_self);
-    auto global_itr = globalsets.begin();
-    if(global_itr==globalsets.end()){
-        globalsets.emplace(_self, [&](auto &globalset) {
-        globalset.id = globalsets.available_primary_key();
-        globalset.reward = reward;
         });
-    }else{
-        globalsets.modify(global_itr,_self, [&]( auto& globalset ) {
-        globalset.reward = reward;
-      });
     }
 }
 
@@ -241,4 +219,64 @@ void bidname::isaccountvalid(account_name seller,account_name acc){
     eosio_assert(acc_itr==seller_index.end(),"account was a seller in order table.");
 }
 
-EOSIO_ABI(bidname, (createorder)(cancelorder)(placeorder)(accrelease)(setadfee)(setmaintain)(cancelplace)(setroyalty)(setreward))
+void bidname::ordercommission(account_name client, asset fee){
+    account_name receiver = getreceiver();
+    action transferact(
+        permission_level{_self, N(active)},
+        N(eosio.token), N(transfer),
+        std::make_tuple(client, receiver, fee, std::string("")));
+    transferact.send();
+}
+
+double bidname::getroyalty(){
+    auto global_itr = globalsets.begin();
+    if(global_itr == globalsets.end()){
+        return 0.8;
+    }else{
+        return global_itr->royalty;
+    }
+} 
+
+asset bidname::getreward(){
+    auto global_itr = globalsets.begin();
+    if(global_itr == globalsets.end()){
+        return asset(800,N(BID));
+    }else{
+        return global_itr->reward;
+    }
+} 
+
+account_name bidname::getcontractname(){
+     auto global_itr = globalsets.begin();
+    if(global_itr == globalsets.end()){
+        return account_name();
+    }else{
+        return global_itr->contractname;
+    }
+}
+
+account_name bidname::getreceiver(){
+     auto global_itr = globalsets.begin();
+    if(global_itr == globalsets.end()){
+        return _self;
+    }else{
+        return global_itr->receiver;
+    }
+}
+
+void bidname::reward(account_name buyer, account_name seller){
+    asset curreward = getreward();
+    account_name curcontract= getcontractname();
+    action transferb(
+        permission_level{_self, N(active)},
+        curcontract, N(transfer),
+        std::make_tuple(_self, seller, curreward, std::string("")));
+    transferb.send();
+    action transfers(
+        permission_level{_self, N(active)},
+        curcontract, N(transfer),
+        std::make_tuple(_self, buyer, curreward, std::string("")));
+    transfers.send();
+}
+
+EOSIO_ABI(bidname, (createorder)(cancelorder)(placeorder)(accrelease)(setadfee)(cancelplace)(setglobalcfg))
