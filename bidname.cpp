@@ -78,8 +78,11 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
     eosio_assert(order_itr->status == OPEN, "order is locking");
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
 
-    ordercommission(buyer, order_itr->price);
-
+    action transferact(
+        permission_level{_self, N(active)},
+        N(eosio.token), N(transfer),
+        std::make_tuple(buyer, _self, order_itr->price, std::string("")));
+    transferact.send();
     openorders.modify(order_itr,buyer, [&]( auto& order ) {
         order.buyer = buyer;
         order.newpkey = newpkey;
@@ -108,6 +111,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
         N(eosio.token), N(transfer),
         std::make_tuple(_self, seller, order_itr->price*royalty, std::string("")));
     transferact.send();
+    ordercommission(_self,order_itr->price - order_itr->price*royalty);
     // string str = order_itr->newpkey.data[0];
     print("i m here acc=========>",name{order_itr->acc});
     // print("i m here str=========>",str);
@@ -170,9 +174,9 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
-        std::make_tuple(_self, buyer, order_itr->price*royalty, std::string("")));
+        std::make_tuple(_self, buyer, order_itr->price - order_itr->price*royalty, std::string("")));
     transferact.send();
-
+    ordercommission(_self,order_itr->price*royalty);
     openorders.modify(order_itr,buyer,[&]( auto& order){
         order.buyer = account_name();
         order.newpkey = eosio::public_key();
