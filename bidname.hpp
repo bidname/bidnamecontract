@@ -21,7 +21,7 @@ using std::vector;
 
 class bidname : public eosio::contract{
   private:
-
+    //模拟systemauthority
     struct key_weight 
     {
       eosio::public_key   key;
@@ -30,7 +30,7 @@ class bidname : public eosio::contract{
       // explicit serialization macro is not necessary, used here only to improve compilation time
       EOSLIB_SERIALIZE( key_weight, (key)(weight) )
     };
-
+    //模拟systemauthority
     struct permission_level_weight
     {
       permission_level  permission ;
@@ -39,13 +39,13 @@ class bidname : public eosio::contract{
       // explicit serialization macro is not necessary, used here only to improve compilation time
       EOSLIB_SERIALIZE( permission_level_weight, (permission)(weight) )
    };
-
+    //模拟systemauthority
     struct wait_weight 
     {
     uint32_t wait_sec;
     weight_type weight;
     };
-
+    //模拟systemauthority
     struct authority   
     {
     uint32_t threshold;
@@ -162,6 +162,6 @@ class bidname : public eosio::contract{
     bool ismaintained();                                       // 是否在维护                            
     asset getreward();                                         // 获取代币奖励标准
     double getroyalty();                                       // 获取手续费比例
-    account_name getcontractname();
-    account_name getreceiver();
+    account_name getcontractname();                            // 获取代币账户
+    account_name getreceiver();                                // 获取团队收益账户
 };
