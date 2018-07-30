@@ -52,7 +52,7 @@ bool bidname::ismaintained()
     auto global_itr = globalsets.begin();
     if ( global_itr == globalsets.end() ) 
     {
-        return false;
+        return true;
     }
     return global_itr->maintained;
 }
@@ -79,7 +79,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
 
     action transferact(
-        permission_level{_self, N(active)},
+        permission_level{buyer, N(active)},
         N(eosio.token), N(transfer),
         std::make_tuple(buyer, _self, order_itr->price, std::string("")));
     transferact.send();
@@ -226,7 +226,7 @@ void bidname::isaccountvalid(account_name seller,account_name acc){
 void bidname::ordercommission(account_name client, asset fee){
     account_name receiver = getreceiver();
     action transferact(
-        permission_level{_self, N(active)},
+        permission_level{client, N(active)},
         N(eosio.token), N(transfer),
         std::make_tuple(client, receiver, fee, std::string("")));
     transferact.send();
