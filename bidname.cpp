@@ -59,6 +59,7 @@ bool bidname::ismaintained()
 
 //@abi action
 void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller){
+    eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(seller);
     auto acc_itr = openorders.find(orderid);
    
@@ -72,6 +73,7 @@ void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller)
 
 //@abi action
 void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey){
+    eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(buyer);
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
@@ -93,7 +95,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
 //@abi action
 void bidname::accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid,eosio::public_key newpkey){
     print("i m here i right0");
-
+    eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(acc);
 
     auto order_itr = openorders.find(orderid);
@@ -104,14 +106,15 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
     print("i m here i right1");
     double royalty = getroyalty();
+    asset poundage = asset(order_itr->price.amount*royalty,order_itr->price.symbol);
     
 
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
-        std::make_tuple(_self, seller, order_itr->price*royalty, std::string("")));
+        std::make_tuple(_self, seller, order_itr->price - poundage, std::string("")));
     transferact.send();
-    ordercommission(_self,order_itr->price - order_itr->price*royalty);
+    ordercommission(_self,poundage);
     // string str = order_itr->newpkey.data[0];
     print("i m here acc=========>",name{order_itr->acc});
     // print("i m here str=========>",str);
@@ -146,6 +149,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
 
 //@abi action
 void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee){
+    eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(seller);
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
@@ -162,6 +166,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
 
 //@abi action
 void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller){
+    eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(buyer);
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
@@ -169,14 +174,16 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
-
     double royalty = getroyalty();
+    asset returnprice = asset(order_itr->price.amount*royalty,order_itr->price.symbol);
+    
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
-        std::make_tuple(_self, buyer, order_itr->price - order_itr->price*royalty, std::string("")));
+        std::make_tuple(_self, buyer, order_itr->price - returnprice, std::string("")));
     transferact.send();
-    ordercommission(_self,order_itr->price*royalty);
+
+    ordercommission(_self,returnprice);
     openorders.modify(order_itr,buyer,[&]( auto& order){
         order.buyer = account_name();
         order.newpkey = eosio::public_key();
@@ -235,7 +242,7 @@ void bidname::ordercommission(account_name client, asset fee){
 double bidname::getroyalty(){
     auto global_itr = globalsets.begin();
     if(global_itr == globalsets.end()){
-        return 0.8;
+        return 0.1;
     }else{
         return global_itr->royalty;
     }
