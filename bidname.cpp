@@ -93,8 +93,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
 }
 
 //@abi action
-void bidname::accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid,eosio::public_key newpkey){
-    print("i m here i right0");
+void bidname::accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth(acc);
 
@@ -104,33 +103,25 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
-    print("i m here i right1");
     double royalty = getroyalty();
     asset poundage = asset(order_itr->price.amount*royalty,order_itr->price.symbol);
     
-
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
         std::make_tuple(_self, seller, order_itr->price - poundage, std::string("")));
     transferact.send();
     ordercommission(_self,poundage);
-    // string str = order_itr->newpkey.data[0];
-    print("i m here acc=========>",name{order_itr->acc});
-    // print("i m here str=========>",str);
-    print("i m here seller=========>",name{order_itr->seller});
-    
-    // string str = order_itr->newpkey.data;
-    bidname::key_weight keyweight = { .key = newpkey,  .weight = 1 };
+
+    bidname::key_weight keyweight = { .key = order_itr->newpkey,  .weight = 1 };
     bidname::authority ownerkey  = { .threshold = 1, .keys = { keyweight }, .accounts = {}, .waits = {} };
     print("i m here i right2");
 
     action updateauthact(
         permission_level{acc, N(owner)},
         N(eosio), N(updateauth),
-        std::make_tuple(acc, N(owner), "",ownerkey));
+        std::make_tuple(acc, N(owner), N(),ownerkey));
     updateauthact.send();
-    print("i m here i right3");
     
     comporders.emplace(_self, [&](auto &order) {
         order.id = openorders.available_primary_key();
