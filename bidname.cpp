@@ -89,6 +89,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
         order.buyer = buyer;
         order.newpkey = newpkey;
         order.status = LOCKING;
+        order.placeat = now();
       });
 }
 
@@ -166,8 +167,14 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
     double royalty = getroyalty();
+    if((now()-order_itr->placeat)>86400){
+        action transferact(
+            permission_level{_self, N(active)},
+            N(eosio.token), N(transfer),
+            std::make_tuple(_self, buyer, order_itr->price, std::string("")));
+        transferact.send();
+    }else{
     asset returnprice = asset(order_itr->price.amount*royalty,order_itr->price.symbol);
-    
     action transferact(
         permission_level{_self, N(active)},
         N(eosio.token), N(transfer),
@@ -175,10 +182,13 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     transferact.send();
 
     ordercommission(_self,returnprice);
+    }
+    
     openorders.modify(order_itr,buyer,[&]( auto& order){
         order.buyer = account_name();
         order.newpkey = eosio::public_key();
         order.status = OPEN;
+        order.placeat = 0;
     });
 }
 

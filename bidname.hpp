@@ -87,13 +87,14 @@ class bidname : public eosio::contract{
         asset price;
         uint16_t status;
         time createdat;
+        time placeat;
 
         uint64_t primary_key() const { return id; }
         account_name by_seller() const { return seller; }
         account_name by_acc() const { return acc; }
         uint64_t by_adfee() const {return adfee.amount;}
 
-        EOSLIB_SERIALIZE( openorder, (id)(seller)(acc)(adfee)(buyer)(newpkey)(price)(status)(createdat) )
+        EOSLIB_SERIALIZE( openorder, (id)(seller)(acc)(adfee)(buyer)(newpkey)(price)(status)(createdat)(placeat) )
     };
 
     //@abi table comporders i64
