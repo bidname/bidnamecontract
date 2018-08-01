@@ -10,7 +10,7 @@ using eosio::name;
 
 //@abi action
 void bidname::createorder(const account_name seller,account_name acc, asset price, asset adfee ){
-    require_auth(seller);
+    require_auth(acc);
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     eosio_assert( price.symbol == CORE_SYMBOL, "only core token allowed" );
     eosio_assert( price.is_valid(), "invalid price" );
@@ -24,9 +24,9 @@ void bidname::createorder(const account_name seller,account_name acc, asset pric
     isaccountvalid(seller,acc);
     deleteoldorder(acc);
     
-    ordercommission(seller,adfee);
+    ordercommission(acc,adfee);
 
-    openorders.emplace(seller, [&](auto &order) {
+    openorders.emplace(acc, [&](auto &order) {
         order.id = openorders.available_primary_key();
         order.seller = seller;
         order.acc = acc;
@@ -60,7 +60,7 @@ bool bidname::ismaintained()
 //@abi action
 void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(seller);
+    require_auth(acc);
     auto acc_itr = openorders.find(orderid);
    
     eosio_assert(acc_itr != openorders.end(), "don't find the order");
@@ -142,7 +142,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
 //@abi action
 void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(seller);
+    require_auth(acc);
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
@@ -150,8 +150,8 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(adfee.amount > 0, "adfee is wrong");
     eosio_assert(adfee.symbol == CORE_SYMBOL, "only core token allowed" );
-    ordercommission(seller,adfee);
-    openorders.modify(order_itr,seller,[&]( auto& order){
+    ordercommission(acc,adfee);
+    openorders.modify(order_itr,acc,[&]( auto& order){
         order.adfee += adfee;
     });
 }
