@@ -157,7 +157,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(adfee.amount > 0, "adfee is wrong");
     eosio_assert(adfee.symbol == CORE_SYMBOL, "only core token allowed" );
-    ordercommission(acc,N(owner),adfee);
+    ordercommission(acc, N(owner), adfee);
     openorders.modify(order_itr,acc,[&]( auto& order){
         order.adfee += adfee;
     });
