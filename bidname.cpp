@@ -10,7 +10,7 @@ using eosio::name;
 
 //@abi action
 void bidname::createorder(const account_name seller,account_name acc, asset price, asset adfee ){
-    require_auth(acc);
+    require_auth2(acc,N(owner));
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     eosio_assert( price.symbol == CORE_SYMBOL, "only core token allowed" );
     eosio_assert( price.is_valid(), "invalid price" );
@@ -24,7 +24,7 @@ void bidname::createorder(const account_name seller,account_name acc, asset pric
     isaccountvalid(seller,acc);
     deleteoldorder(acc);
     
-    ordercommission(acc,adfee);
+    ordercommission(acc,N(owner),adfee);
 
     openorders.emplace(acc, [&](auto &order) {
         order.id = openorders.available_primary_key();
@@ -60,13 +60,20 @@ bool bidname::ismaintained()
 //@abi action
 void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(acc);
+    require_auth2(acc,N(owner));
     auto acc_itr = openorders.find(orderid);
    
     eosio_assert(acc_itr != openorders.end(), "don't find the order");
-    eosio_assert(acc_itr->status == OPEN, "order is locking");
+    // eosio_assert(acc_itr->status == OPEN, "order is locking");
     eosio_assert(name{acc_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{acc_itr->acc} == name{acc}, "order info is wrong");
+    if(acc_itr->status == LOCKING && acc_itr->buyer != 0){
+        action transferact(
+            permission_level{_self, N(active)},
+            N(eosio.token), N(transfer),
+            std::make_tuple(_self, acc_itr->buyer, acc_itr->price, std::string("")));
+        transferact.send();
+    }
     openorders.erase(acc_itr);
     eosio_assert(acc_itr != openorders.end(), "can't cancel order");
 }
@@ -74,7 +81,7 @@ void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller)
 //@abi action
 void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(buyer);
+    require_auth2(buyer,N(active));
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
@@ -96,7 +103,7 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
 //@abi action
 void bidname::accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(acc);
+    require_auth2(acc,N(owner));
 
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
@@ -112,7 +119,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
         N(eosio.token), N(transfer),
         std::make_tuple(_self, seller, order_itr->price - poundage, std::string("")));
     transferact.send();
-    ordercommission(_self,poundage);
+    ordercommission(_self,N(active),poundage);
 
     bidname::key_weight keyweight = { .key = order_itr->newpkey,  .weight = 1 };
     bidname::authority ownerkey  = { .threshold = 1, .keys = { keyweight }, .accounts = {}, .waits = {} };
@@ -142,7 +149,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
 //@abi action
 void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(acc);
+    require_auth2(acc,N(owner));
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
@@ -150,7 +157,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(adfee.amount > 0, "adfee is wrong");
     eosio_assert(adfee.symbol == CORE_SYMBOL, "only core token allowed" );
-    ordercommission(acc,adfee);
+    ordercommission(acc,N(owner),adfee);
     openorders.modify(order_itr,acc,[&]( auto& order){
         order.adfee += adfee;
     });
@@ -159,7 +166,7 @@ void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, 
 //@abi action
 void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
-    require_auth(buyer);
+    require_auth2(buyer,N(active));
     auto order_itr = openorders.find(orderid);
     eosio_assert(order_itr != openorders.end(), "don't find the order");
     eosio_assert(order_itr->status == LOCKING, "order is unlocking");
@@ -181,7 +188,7 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
         std::make_tuple(_self, buyer, order_itr->price - returnprice, std::string("")));
     transferact.send();
 
-    ordercommission(_self,returnprice);
+    ordercommission(_self,N(active),returnprice);
     }
     
     openorders.modify(order_itr,buyer,[&]( auto& order){
@@ -194,6 +201,7 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
 
 //@abi action
 void bidname::setglobalcfg(bool maintain, double royalty, asset reward, account_name contractname,account_name receiver){
+    require_auth(_self);
     eosio_assert(is_account(contractname) , "account is invalid");
     eosio_assert(is_account(receiver) , "account is invalid");
 
@@ -231,10 +239,10 @@ void bidname::isaccountvalid(account_name seller,account_name acc){
     eosio_assert(acc_itr==seller_index.end(),"account was a seller in order table.");
 }
 
-void bidname::ordercommission(account_name client, asset fee){
+void bidname::ordercommission(account_name client,permission_name permission, asset fee){
     account_name receiver = getreceiver();
     action transferact(
-        permission_level{client, N(active)},
+        permission_level{client, permission},
         N(eosio.token), N(transfer),
         std::make_tuple(client, receiver, fee, std::string("")));
     transferact.send();

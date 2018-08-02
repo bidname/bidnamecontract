@@ -153,16 +153,16 @@ class bidname : public eosio::contract{
     void cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller);
 
   private:
-    void setorderstatus(uint64_t orderid);                     // 修改订单状态
-    bool isorderopen(uint64_t orderid);                        // 订单是否开启
-    asset getorderprice(uint64_t orderid);                     // 获取订单金额
-    void isaccountvalid(account_name seller,account_name acc); //判断seller和acc是否冲突
-    void deleteoldorder(account_name account);                 // 删除acc重复的open订单                          
-    void ordercommission(account_name client, asset fee);      // 缴纳广告费及佣金
-    void reward(account_name buyer, account_name seller);      // 给予购买者代币奖励
-    bool ismaintained();                                       // 是否在维护                            
-    asset getreward();                                         // 获取代币奖励标准
-    double getroyalty();                                       // 获取手续费比例
-    account_name getcontractname();                            // 获取代币账户
-    account_name getreceiver();                                // 获取团队收益账户
+    void setorderstatus(uint64_t orderid);                                                 // 修改订单状态
+    bool isorderopen(uint64_t orderid);                                                    // 订单是否开启
+    asset getorderprice(uint64_t orderid);                                                 // 获取订单金额
+    void isaccountvalid(account_name seller,account_name acc);                             //判断seller和acc是否冲突
+    void deleteoldorder(account_name account);                                             // 删除acc重复的open订单                          
+    void ordercommission(account_name client, permission_name permission, asset fee);      // 缴纳广告费及佣金
+    void reward(account_name buyer, account_name seller);                                  // 给予购买者代币奖励
+    bool ismaintained();                                                                   // 是否在维护                            
+    asset getreward();                                                                     // 获取代币奖励标准
+    double getroyalty();                                                                   // 获取手续费比例
+    account_name getcontractname();                                                        // 获取代币账户
+    account_name getreceiver();                                                            // 获取团队收益账户
 };
