@@ -145,12 +145,12 @@ class bidname : public eosio::contract{
     }
 
     void createorder(const account_name seller,account_name acc, asset price, asset adfee  );
-    void cancelorder(uint64_t orderid,account_name acc,account_name seller);
-    void placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey);
-    void accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid);
-    void setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee); 
+    void cancelorder(account_name acc,account_name seller);
+    void placeorder(account_name acc,account_name buyer,eosio::public_key newpkey);
+    void accrelease(account_name seller, account_name acc, account_name buyer);
+    void setadfee(account_name seller, account_name acc, asset adfee); 
     void setglobalcfg(bool maintain, double royalty, asset reward, account_name contractname,account_name receiver);
-    void cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller);
+    void cancelplace(account_name acc,account_name buyer,account_name seller);
 
   private:
     void setorderstatus(uint64_t orderid);                                                 // 修改订单状态

@@ -58,12 +58,13 @@ bool bidname::ismaintained()
 }
 
 //@abi action
-void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller){
+void bidname::cancelorder(account_name acc,account_name seller){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth2(acc,N(owner));
-    auto acc_itr = openorders.find(orderid);
+    auto acc_index = openorders.template get_index<N(acc)>();
+    auto acc_itr = acc_index.find(acc);
    
-    eosio_assert(acc_itr != openorders.end(), "don't find the order");
+    eosio_assert(acc_itr != acc_index.end(), "don't find the order");
     // eosio_assert(acc_itr->status == OPEN, "order is locking");
     eosio_assert(name{acc_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{acc_itr->acc} == name{acc}, "order info is wrong");
@@ -74,25 +75,26 @@ void bidname::cancelorder(uint64_t orderid,account_name acc,account_name seller)
             std::make_tuple(_self, acc_itr->buyer, acc_itr->price, std::string("")));
         transferact.send();
     }
-    openorders.erase(acc_itr);
-    eosio_assert(acc_itr != openorders.end(), "can't cancel order");
+    acc_index.erase(acc_itr);
+    eosio_assert(acc_itr != acc_index.end(), "can't cancel order");
 }
 
 //@abi action
-void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eosio::public_key newpkey){
+void bidname::placeorder(account_name acc,account_name buyer,eosio::public_key newpkey){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth2(buyer,N(active));
-    auto order_itr = openorders.find(orderid);
-    eosio_assert(order_itr != openorders.end(), "don't find the order");
+    auto acc_index = openorders.template get_index<N(acc)>();
+    auto order_itr = acc_index.find(acc);
+       
+    eosio_assert(order_itr != acc_index.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
-    eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
 
     action transferact(
         permission_level{buyer, N(active)},
         N(eosio.token), N(transfer),
         std::make_tuple(buyer, _self, order_itr->price, std::string("")));
     transferact.send();
-    openorders.modify(order_itr,buyer, [&]( auto& order ) {
+    acc_index.modify(order_itr,buyer, [&]( auto& order ) {
         order.buyer = buyer;
         order.newpkey = newpkey;
         order.status = LOCKING;
@@ -101,14 +103,14 @@ void bidname::placeorder(account_name acc,uint64_t orderid,account_name buyer,eo
 }
 
 //@abi action
-void bidname::accrelease(account_name seller, account_name acc, account_name buyer,uint64_t orderid){
+void bidname::accrelease(account_name seller, account_name acc, account_name buyer){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth2(acc,N(owner));
-
-    auto order_itr = openorders.find(orderid);
-    eosio_assert(order_itr != openorders.end(), "don't find the order");
+    auto acc_index = openorders.template get_index<N(acc)>();
+    auto order_itr = acc_index.find(acc);
+   
+    eosio_assert(order_itr != acc_index.end(), "don't find the order");
     eosio_assert(order_itr->status == LOCKING, "order is not locking");
-    eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->buyer} == name{buyer}, "order info is wrong");
     double royalty = getroyalty();
@@ -132,7 +134,7 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     updateauthact.send();
     
     comporders.emplace(_self, [&](auto &order) {
-        order.id = openorders.available_primary_key();
+        order.id = comporders.available_primary_key();
         order.seller = seller;
         order.acc = acc;
         order.price = order_itr->price;
@@ -141,34 +143,38 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
         order.finishedat = now();
     });
 
-    openorders.erase(order_itr);
+    acc_index.erase(order_itr);
     // reward(seller,buyer);
     
 }
 
 //@abi action
-void bidname::setadfee(uint64_t orderid, account_name seller, account_name acc, asset adfee){
+void bidname::setadfee(account_name seller, account_name acc, asset adfee){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth2(acc,N(owner));
-    auto order_itr = openorders.find(orderid);
-    eosio_assert(order_itr != openorders.end(), "don't find the order");
+    auto acc_index = openorders.template get_index<N(acc)>();
+    auto order_itr = acc_index.find(acc);
+   
+    eosio_assert(order_itr != acc_index.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
     eosio_assert(adfee.amount > 0, "adfee is wrong");
     eosio_assert(adfee.symbol == CORE_SYMBOL, "only core token allowed" );
     ordercommission(acc, N(owner), adfee);
-    openorders.modify(order_itr,acc,[&]( auto& order){
+    acc_index.modify(order_itr,acc,[&]( auto& order){
         order.adfee += adfee;
     });
 }
 
 //@abi action
-void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,account_name seller){
+void bidname::cancelplace(account_name acc,account_name buyer,account_name seller){
     eosio_assert(ismaintained() == false, "The game is under maintenance");
     require_auth2(buyer,N(active));
-    auto order_itr = openorders.find(orderid);
-    eosio_assert(order_itr != openorders.end(), "don't find the order");
+    auto acc_index = openorders.template get_index<N(acc)>();
+    auto order_itr = acc_index.find(acc);
+
+    eosio_assert(order_itr != acc_index.end(), "don't find the order");
     eosio_assert(order_itr->status == LOCKING, "order is unlocking");
     eosio_assert(name{order_itr->seller} == name{seller}, "order info is wrong");
     eosio_assert(name{order_itr->acc} == name{acc}, "order info is wrong");
@@ -191,7 +197,7 @@ void bidname::cancelplace(account_name acc,uint64_t orderid,account_name buyer,a
     ordercommission(_self,N(active),returnprice);
     }
     
-    openorders.modify(order_itr,buyer,[&]( auto& order){
+    acc_index.modify(order_itr,buyer,[&]( auto& order){
         order.buyer = account_name();
         order.newpkey = eosio::public_key();
         order.status = OPEN;
