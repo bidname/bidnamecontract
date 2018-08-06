@@ -127,11 +127,16 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     bidname::authority ownerkey  = { .threshold = 1, .keys = { keyweight }, .accounts = {}, .waits = {} };
     print("i m here i right2");
 
-    action updateauthact(
+    action updateauthown(
         permission_level{acc, N(owner)},
         N(eosio), N(updateauth),
         std::make_tuple(acc, N(owner), N(),ownerkey));
-    updateauthact.send();
+    updateauthown.send();
+    action updateauthact(
+        permission_level{acc, N(owner)},
+        N(eosio), N(updateauth),
+        std::make_tuple(acc, N(active), N(owner),ownerkey));
+        updateauthact.send();
     
     comporders.emplace(_self, [&](auto &order) {
         order.id = comporders.available_primary_key();
