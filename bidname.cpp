@@ -8,10 +8,12 @@ using std::vector;
 using eosio::print;
 using eosio::name;
 
+#define CORE_SYMBOL S(4,EOS) // MainNet + JungleTestNet use EOS
+
 //@abi action
 void bidname::createorder(const account_name seller,account_name acc, asset price, asset adfee ){
     require_auth2(acc,N(owner));
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     eosio_assert( price.symbol == CORE_SYMBOL, "only core token allowed" );
     eosio_assert( price.is_valid(), "invalid price" );
     eosio_assert( price.amount > 1, "must price positive quantity" );
@@ -19,6 +21,7 @@ void bidname::createorder(const account_name seller,account_name acc, asset pric
     eosio_assert( adfee.is_valid(), "invalid adfee" );
     eosio_assert( adfee.amount > 1, "must adfee positive quantity" );
     eosio_assert( is_account( acc ), "account don't exists" );
+    eosio_assert( is_account( seller ), "account don't exists" );
     eosio_assert( acc != seller, "don't sell yourself" );
 
     isaccountvalid(seller,acc);
@@ -59,7 +62,7 @@ bool bidname::ismaintained()
 
 //@abi action
 void bidname::cancelorder(account_name acc,account_name seller){
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     require_auth2(acc,N(owner));
     auto acc_index = openorders.template get_index<N(acc)>();
     auto acc_itr = acc_index.find(acc);
@@ -81,7 +84,7 @@ void bidname::cancelorder(account_name acc,account_name seller){
 
 //@abi action
 void bidname::placeorder(account_name acc,account_name buyer,eosio::public_key newpkey){
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     require_auth2(buyer,N(active));
     auto acc_index = openorders.template get_index<N(acc)>();
     auto order_itr = acc_index.find(acc);
@@ -105,7 +108,7 @@ void bidname::placeorder(account_name acc,account_name buyer,eosio::public_key n
 
 //@abi action
 void bidname::accrelease(account_name seller, account_name acc, account_name buyer){
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     require_auth2(acc,N(owner));
     auto acc_index = openorders.template get_index<N(acc)>();
     auto order_itr = acc_index.find(acc);
@@ -150,13 +153,13 @@ void bidname::accrelease(account_name seller, account_name acc, account_name buy
     });
 
     acc_index.erase(order_itr);
-    // reward(seller,buyer);
+    reward(seller,buyer);
     
 }
 
 //@abi action
 void bidname::setadfee(account_name seller, account_name acc, asset adfee){
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     require_auth2(acc,N(owner));
     auto acc_index = openorders.template get_index<N(acc)>();
     auto order_itr = acc_index.find(acc);
@@ -175,7 +178,7 @@ void bidname::setadfee(account_name seller, account_name acc, asset adfee){
 
 //@abi action
 void bidname::cancelplace(account_name acc,account_name buyer,account_name seller){
-    eosio_assert(ismaintained() == false, "The game is under maintenance");
+    eosio_assert(ismaintained() == false, "The plate is under maintenance");
     require_auth2(buyer,N(active));
     auto acc_index = openorders.template get_index<N(acc)>();
     auto order_itr = acc_index.find(acc);
