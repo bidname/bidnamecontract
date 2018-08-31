@@ -88,6 +88,7 @@ void bidname::placeorder(account_name acc,account_name buyer,eosio::public_key n
        
     eosio_assert(order_itr != acc_index.end(), "don't find the order");
     eosio_assert(order_itr->status == OPEN, "order is locking");
+    eosio_assert(buyer != acc, "buyer can't be acc");
 
     action transferact(
         permission_level{buyer, N(active)},
